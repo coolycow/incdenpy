@@ -125,17 +125,17 @@ def increase_density_laspy(
 
     # Сортируем имеющиеся точки по увеличению времени
     if points.size > 1:
-        logger.debug("Быстрая сортировка точек по времени: начало")
+        logger.debug("Сортировка исходных точек по времени: начало")
         points.sort(order=tf)
-        logger.debug("Быстрая сортировка точек по времени: конец")
+        logger.debug("Сортировка исходных точек по времени: конец")
     else:
         return points
 
     # Сортируем имеющиеся точки с одинаковым временем по расстоянию от точки с предыдущим временем
     if points.size > 1:
-        logger.debug("Сортировка точек с одинаковым временем: начало")
+        logger.debug("Сортировка исходных точек с одинаковым временем: начало")
         sort_with_same_time(points)
-        logger.debug("Сортировка точек с одинаковым временем: конец")
+        logger.debug("Сортировка исходных точек с одинаковым временем: конец")
     else:
         return points
 
@@ -146,6 +146,7 @@ def increase_density_laspy(
     # Шаблон для новой точки
     empty_point_template = np.empty(1, dtype=points.dtype)[0]
 
+    logger.debug("Генерация новых точек: начало")
     for i in range(n - 1):
         pt1 = points[i]
         pt2 = points[i + 1]
@@ -206,10 +207,16 @@ def increase_density_laspy(
 
             # Добавляем новую точку
             new_points.append(interp_pt)
+    logger.debug("Генерация новых точек: конец")
 
     if new_points:
         # Объединяем исходные точки и новые
         result = np.concatenate([points, np.array(new_points, dtype=points.dtype)])
+
+        # Сортируем точки по времени, чтобы результат был похож на исходный
+        logger.debug("Сортировка финальных точек по времени: начало")
+        result.sort(order=tf)
+        logger.debug("Сортировка финальных точек по времени: конец")
     else:
         result = points
 
