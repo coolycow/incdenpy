@@ -3,7 +3,7 @@ import os
 import laspy
 import yaml
 import argparse
-from laspy import LaspyException
+from laspy import LaspyException, PackedPointRecord
 from logger import setup_logger, log_config, get_worker_logger, init_worker_logger
 from terrascan import increase_density_laspy
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -89,12 +89,15 @@ def process_file(filepath, process_file_settings, process_file_logger):
 
     try:
         with laspy.open(filepath) as input_las:
+            # Выводим информацию о файле (формат точек, масштаб и смещение)
             header = input_las.header
-            log.info(f"Формат: {header.point_format}; Точек: {header.point_count}; VLRs: {len(header.vlrs)}")
+            log.info(f"Format: {header.point_format}; Count: {header.point_count}; VLRs: {len(header.vlrs)}")
+            log.info(f"Scale (units) X, Y, Z: {header.scale}")
+            log.info(f"Offset X, Y, Z: {header.offset}")
 
             # Выводим все имена измерений
             if process_file_settings['test_mode']:
-                log.debug("Доступные измерения в HEADER:")
+                log.debug("Point format dimension names:")
                 for dim in header.point_format.dimension_names:
                     log.debug(dim)
 
@@ -122,8 +125,13 @@ def process_file(filepath, process_file_settings, process_file_logger):
             # Организуем данные в наш упрощенный класс Point3d для совместимости с increase_density
             points = las.points.array
 
+            # Выводим первую точку для проверки координат
+            log.info(f"First point raw X, Y, Z: {points[0]['X']}, {points[0]['Y']}, {points[0]['Z']}")
+            log.info(f"First point scaled X, Y, Z: {las.x[0]}, {las.y[0]}, {las.z[0]}")
+
             # Вызываем функцию на увеличение плотности точек с параметрами из process_file_settings
             new_points = increase_density_laspy(
+                header.scale,
                 points,
                 max_distance=process_file_settings['max_distance'],
                 max_angle=process_file_settings['max_angle'],
@@ -139,8 +147,9 @@ def process_file(filepath, process_file_settings, process_file_logger):
             if len(new_points) == len(points):
                 log.info("Новых точек не добавлено, исходные данные остаются без изменений.")
             else:
+                las.points = PackedPointRecord(new_points, header.point_format)
+                las.header.point_count = len(new_points)
                 log.info(f"Добавлено дополнительных точек: {len(new_points) - len(points)}")
-                las.points = new_points
 
             # Формируем имя для сохранения
             filename = os.path.basename(filepath)
