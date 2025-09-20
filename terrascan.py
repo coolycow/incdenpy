@@ -41,15 +41,15 @@ def sort_with_same_time(points):
 
             # Вычисляем расстояния до контрольной точки
             coordinates = np.vstack((
-                points[i:j][xf].astype(np.float64),
-                points[i:j][yf].astype(np.float64),
-                points[i:j][zf].astype(np.float64)
+                points[i:j][xf],
+                points[i:j][yf],
+                points[i:j][zf]
             )).T
 
             check_coordinates = np.array([
-                float(check_pnt[xf]),
-                float(check_pnt[yf]),
-                float(check_pnt[zf])
+                check_pnt[xf],
+                check_pnt[yf],
+                check_pnt[zf]
             ])
 
             dists = np.sum((coordinates - check_coordinates) ** 2, axis=1)
