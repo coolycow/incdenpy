@@ -1,5 +1,7 @@
 import multiprocessing
 import os
+import traceback
+
 import laspy
 import yaml
 import argparse
@@ -167,10 +169,10 @@ def process_file(filepath, process_file_settings, process_file_logger):
             with open(output_path, "wb") as output_file:
                 las.write(output_file)
     except LaspyException as e:
-        log.error(f"Ошибка чтения LAS/LAZ файла: {e}. Файл пропущен\n")
+        log.error(f"Ошибка чтения LAS/LAZ файла {filepath}: {e}. Файл пропущен\n")
         return
     except Exception as e:
-        log.error(f"Неизвестная ошибка при обработке файла: {e}. Файл пропущен\n")
+        log.error(f"Неизвестная ошибка при обработке файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")
         return
 
     log.info(f"Завершена обработка файла: {filepath}\n")

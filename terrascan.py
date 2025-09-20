@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from numba import njit
 
 # Быстрые alias полей, которые используются в дальнейшей работе
 xf = 'X'
@@ -8,24 +9,8 @@ zf = 'Z'
 tf = 'gps_time'
 fl = 'point_source_id'
 
-# Функция для квадрата расстояния 3D
-def square_dist3(point_1, point_2):
-    dx = point_1[xf] - point_2[xf]
-    dy = point_1[yf] - point_2[yf]
-    dz = point_1[zf] - point_2[zf]
-    return dx * dx + dy * dy + dz * dz
-
-# Функция для косинуса угла между направляющими векторами
-def dir_cosines_z(point_1, point_2):
-    dx = point_2[xf] - point_1[xf]
-    dy = point_2[yf] - point_1[yf]
-    dz = point_2[zf] - point_1[zf]
-    dist = math.sqrt(dx * dx + dy * dy + dz * dz)
-    if dist == 0:
-        return 0.0
-    return dz / dist
-
 # Функция сортировки точек с одинаковым временем
+@njit
 def sort_with_same_time(points):
     i = 0
     n = len(points)
@@ -116,8 +101,8 @@ def increase_density_laspy(
 
     parts_count = abs(quantity) + 1
 
-    # Максимальный угол переводим в радианы и вычитаем его из PI/2
-    # Т.е. направляющий косинус у нас идет от начала вектора, то нам нужен обратный угол
+    # Максимальный угол переводим в радианы и вычитаем его из PI/2.
+    # То есть направляющий косинус у нас идет от начала вектора, то нам нужен обратный угол
     # Например, если у нас максимальный угол = 60 градусов, то реально нужно брать 30 и считать его как минимальный угол
     rad_angle = math.pi / 2 - max_angle * math.pi / 180
 
@@ -140,74 +125,79 @@ def increase_density_laspy(
     else:
         return points
 
-    new_points = []
-
     n = len(points)
 
     # Шаблон для новой точки
     empty_point_template = np.empty(1, dtype=points.dtype)[0]
 
+    logger.debug("Фильтрация исходного массива точек: начало")
+
+    # Векторизированная фильтрация пар точек
+    idx = np.arange(n - 1)
+
+    mask_class = np.ones(n - 1, dtype=bool)
+    if has_cf:
+        mask_class = (
+            ~np.isin(points[cf][idx], ignore_set) &
+            ~np.isin(points[cf][idx + 1], ignore_set)
+        )
+
+    mask_fl = np.ones(n - 1, dtype=bool)
+    if has_fl:
+        mask_fl = points[fl][idx] == points[fl][idx + 1]
+
+    mask_time = np.abs(points[tf][idx] - points[tf][idx + 1]) <= time_diff
+
+    dx = points[xf][idx + 1] - points[xf][idx]
+    dy = points[yf][idx + 1] - points[yf][idx]
+    dz = points[zf][idx + 1] - points[zf][idx]
+    qd = dx ** 2 + dy ** 2 + dz ** 2
+    mask_dist = qd <= q_max_distance
+
+    dist = np.sqrt(qd)
+    cos_z = np.zeros(n - 1, dtype=np.float64)
+    valid_dist = dist > 0
+    cos_z[valid_dist] = dz[valid_dist] / dist[valid_dist]
+    angle = np.abs(np.arccos(cos_z))
+    mask_angle = ~((angle < rad_angle) & (qd > q_angle_distance))
+
+    final_mask = mask_class & mask_fl & mask_time & mask_dist & mask_angle
+
+    good_idx = np.where(final_mask)[0]
+
+    # Предварительное вычисление долей для вставки
+    delta_dist_frac = 1 / parts_count
+    frac_values = np.arange(1, parts_count) * delta_dist_frac
+    logger.debug("Фильтрация исходного массива точек: конец")
+
     logger.debug("Генерация новых точек: начало")
-    for i in range(n - 1):
+    new_points = []
+    for i in good_idx:
         pt1 = points[i]
         pt2 = points[i + 1]
 
-        # Если у точек есть классы, то пропускаем точки, класс которых в ignore_set
-        if has_cf and (pt1[cf] in ignore_set or pt2[cf] in ignore_set):
-            continue
-
-        # Если у точек есть включение, то пропускаем точки с разными номерами включений
-        if has_fl and pt1[fl] != pt2[fl]:
-            continue
-
-        # Разница времени (GpsTime) между точками
         t1 = pt1[tf]
         t2 = pt2[tf]
-        if abs(t2 - t1) > time_diff:
-            continue
-
-        # Квадрат расстояния 3D между точками
-        qd = square_dist3(pt1, pt2)
-
-        # Если по расстоянию точки слишком далеко - пропускаем вставку
-        if qd > q_max_distance:
-            continue
-
-        # Угол между точками по Z направляющему косинусу
-        angle = abs(math.acos(dir_cosines_z(pt1, pt2)))
-        if angle < rad_angle and qd > q_angle_distance:
-            # По углу и расстоянию не подходит - пропускаем вставку
-            continue
-
         delta_time = abs(t2 - t1) / parts_count
-        delta_dist_frac = 1 / parts_count
 
-        for part in range(1, parts_count):
-            frac = part * delta_dist_frac
-
-            # Создаем новую точку на основе копии шаблона.
-            # Переносим все поля из первой точки.
-            # Нельзя делать interp_pt = np.copy(pt1), т.к. из-за особенностей копирования будет изменен исходная точка.
+        for part_idx, frac in enumerate(frac_values, start=1):
             interp_pt = empty_point_template.copy()
             for name in points.dtype.names:
                 interp_pt[name] = pt1[name]
 
-            # Линейная интерполяция координат
             interp_pt[xf] = pt1[xf] + (pt2[xf] - pt1[xf]) * frac
             interp_pt[yf] = pt1[yf] + (pt2[yf] - pt1[yf]) * frac
             interp_pt[zf] = pt1[zf] + (pt2[zf] - pt1[zf]) * frac
 
-            # Линейная интерполяция времени
-            interp_pt[tf] = t1 + delta_time * part
+            interp_pt[tf] = t1 + delta_time * part_idx
 
-            # Класс точки
             if 0 <= point_class < 256:
                 interp_pt[cf] = point_class
             else:
                 interp_pt[cf] = pt1[cf]
 
-            # Добавляем новую точку
             new_points.append(interp_pt)
+
     logger.debug("Генерация новых точек: конец")
 
     if new_points:
