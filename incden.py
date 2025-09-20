@@ -69,7 +69,7 @@ def process_files(process_settings, process_logger, process_log_dir="logs", proc
                                  initializer=init_worker_logger,
                                  initargs=(process_log_dir, process_log_filename)) as executor:
             futures = {
-                executor.submit(process_file, filepath, process_settings, process_logger):
+                executor.submit(process_file, filepath, process_settings, process_logger, process_log_dir, process_log_filename):
                     filepath for filepath in files
             }
 
@@ -81,7 +81,7 @@ def process_files(process_settings, process_logger, process_log_dir="logs", proc
                     process_logger.error(f"Ошибка при обработке файла {filepath}: {e}")
 
 # Обработка конкретного файла
-def process_file(filepath, process_file_settings, process_file_logger):
+def process_file(filepath, process_file_settings, process_file_logger, process_log_dir="logs", process_log_filename = None):
     log = process_file_logger or get_worker_logger()
 
     if log is None:
@@ -147,8 +147,11 @@ def process_file(filepath, process_file_settings, process_file_logger):
                 point_class = process_file_settings['point_class'],
                 ignore_classes = process_file_settings['ignore_classes'],
                 final_sort = process_file_settings['final_sort'],
+                max_processes = process_file_settings['max_workers'],
                 test_mode = process_file_settings['test_mode'],
-                logger=log
+                logger=log,
+                process_log_dir=process_log_dir,
+                process_log_filename=process_log_filename
             )
 
             if len(new_points) == len(points):
