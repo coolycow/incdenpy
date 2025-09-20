@@ -73,6 +73,7 @@ def increase_density_laspy(
         quantity, # количество новых точек, добавляемых между двумя соседними точками
         point_class, # класс для новых точек (-1 значит копировать класс исходной точки)
         ignore_classes, # список классов, которые игнорируются
+        final_sort, # сортировка по времени для финальных точек
         test_mode=False, # зарезервировано для пометки точек
         logger=None
 ):
@@ -214,9 +215,10 @@ def increase_density_laspy(
         result = np.concatenate([points, np.array(new_points, dtype=points.dtype)])
 
         # Сортируем точки по времени, чтобы результат был похож на исходный
-        logger.debug("Сортировка финальных точек по времени: начало")
-        result.sort(order=tf)
-        logger.debug("Сортировка финальных точек по времени: конец")
+        if final_sort:
+            logger.debug("Сортировка финальных точек по времени: начало")
+            result.sort(order=tf)
+            logger.debug("Сортировка финальных точек по времени: конец")
     else:
         result = points
 

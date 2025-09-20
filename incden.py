@@ -19,7 +19,8 @@ def parse_args(defaults):
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default="config.yaml")
     parser.add_argument('--max_workers', type=int, default=defaults.get('max_workers'))
-    parser.add_argument('--with_workers', action='store_true', default=defaults.get('with_workers'))
+    parser.add_argument('--workers', action='store_true', default=defaults.get('workers'))
+    parser.add_argument('--no_with_workers', action='store_false', dest='workers')
     parser.add_argument('--max_distance', type=float, default=defaults.get('max_distance'))
     parser.add_argument('--max_angle', type=float, default=defaults.get('max_angle'))
     parser.add_argument('--angle_distance', type=float, default=defaults.get('angle_distance'))
@@ -28,9 +29,12 @@ def parse_args(defaults):
     parser.add_argument('--time_diff', type=float, default=defaults.get('time_diff'))
     parser.add_argument('--ignore_classes', type=int, nargs='*', default=defaults.get('ignore_classes'))
     parser.add_argument('--test_mode', action='store_true', default=defaults.get('test_mode'))
+    parser.add_argument('--no_test_mode', action='store_false', dest='test_mode')
     parser.add_argument('--input_folder', type=str, default=defaults.get('input_folder'))
     parser.add_argument('--output_folder', type=str, default=defaults.get('output_folder'))
     parser.add_argument('--save_format', type=str, choices=['', 'las10', 'las11', 'las12', 'las13', 'las14'], default=defaults.get('save_format'))
+    parser.add_argument('--final_sort', action='store_true', default=defaults.get('final_sort'))
+    parser.add_argument('--no_final_sort', action='store_false', dest='final_sort')
     return vars(parser.parse_args())
 
 # Получение списка файлов из директории
@@ -51,7 +55,7 @@ def process_files(process_settings, process_logger, process_log_dir="logs", proc
         process_logger.warning(f"В директории {directory} файлов не найдено")
         return
 
-    if not process_settings['with_workers']:
+    if not process_settings['workers']:
         process_logger.info(f"Начинается обработка {len(files)} файлов в одном потоке...")
         for filepath in files:
             process_file(filepath, process_settings, process_logger)
@@ -133,14 +137,15 @@ def process_file(filepath, process_file_settings, process_file_logger):
             new_points = increase_density_laspy(
                 header.scale,
                 points,
-                max_distance=process_file_settings['max_distance'],
-                max_angle=process_file_settings['max_angle'],
-                angle_distance=process_file_settings['angle_distance'],
-                time_diff=process_file_settings['time_diff'],
-                quantity=process_file_settings['quantity'],
-                point_class=process_file_settings['point_class'],
-                ignore_classes=process_file_settings['ignore_classes'],
-                test_mode=process_file_settings['test_mode'],
+                max_distance = process_file_settings['max_distance'],
+                max_angle = process_file_settings['max_angle'],
+                angle_distance = process_file_settings['angle_distance'],
+                time_diff = process_file_settings['time_diff'],
+                quantity = process_file_settings['quantity'],
+                point_class = process_file_settings['point_class'],
+                ignore_classes = process_file_settings['ignore_classes'],
+                final_sort = process_file_settings['final_sort'],
+                test_mode = process_file_settings['test_mode'],
                 logger=log
             )
 
