@@ -137,39 +137,58 @@ def process_group(
     delta_dist_frac = 1 / parts_count
     frac_values = np.arange(1, parts_count) * delta_dist_frac
 
-    # Заготовки для вставки
-    new_points = []
-    empty_point_template = np.empty(1, dtype=points_group.dtype)[0]
-
     log.debug("Генерация новых точек: начало")
-    for i in good_idx:
-        pt1 = points_group[i]
-        pt2 = points_group[i + 1]
 
-        t1 = pt1[tf]
-        t2 = pt2[tf]
-        delta_time = abs(t2 - t1) / parts_count
+    # Получаем индексы "хороших" пар
+    good_pairs = points_group[good_idx]
+    next_points = points_group[good_idx + 1]
 
-        for part_idx, frac in enumerate(frac_values, start=1):
-            interp_pt = empty_point_template.copy()
-            for name in points_group.dtype.names:
-                interp_pt[name] = pt1[name]
+    # Извлекаем координаты и время
+    x1 = good_pairs[xf]
+    y1 = good_pairs[yf]
+    z1 = good_pairs[zf]
+    t1 = good_pairs[tf]
 
-            interp_pt[xf] = pt1[xf] + (pt2[xf] - pt1[xf]) * frac
-            interp_pt[yf] = pt1[yf] + (pt2[yf] - pt1[yf]) * frac
-            interp_pt[zf] = pt1[zf] + (pt2[zf] - pt1[zf]) * frac
+    x2 = next_points[xf]
+    y2 = next_points[yf]
+    z2 = next_points[zf]
+    t2 = next_points[tf]
 
-            interp_pt[tf] = t1 + delta_time * part_idx
+    # Создаём матрицу коэффициентов интерполяции
+    frac_matrix = np.tile(frac_values, len(good_idx)).reshape(len(good_idx), -1)
 
-            if 0 <= point_class < 256:
-                interp_pt[cf] = point_class
-            else:
-                interp_pt[cf] = pt1[cf]
+    # Интерполируем координаты и время
+    new_x = x1[:, None] + (x2[:, None] - x1[:, None]) * frac_matrix
+    new_y = y1[:, None] + (y2[:, None] - y1[:, None]) * frac_matrix
+    new_z = z1[:, None] + (z2[:, None] - z1[:, None]) * frac_matrix
+    new_t = t1[:, None] + (t2[:, None] - t1[:, None]) * frac_values[None, :]
 
-            new_points.append(interp_pt)
+    # Создаём шаблон новой точки
+    dtype = points_group.dtype
+    new_point_shape = (len(good_idx) * len(frac_values),)
+    new_points = np.zeros(new_point_shape, dtype=dtype)
+
+    # Заполняем координаты и время
+    new_points[xf] = new_x.flatten()
+    new_points[yf] = new_y.flatten()
+    new_points[zf] = new_z.flatten()
+    new_points[tf] = new_t.flatten()
+
+    # Копируем остальные поля из pt1
+    for field in dtype.names:
+        if field not in [xf, yf, zf, tf]:
+            src = good_pairs[field][:, None]
+            new_points[field] = src.repeat(len(frac_values), axis=0).flatten()
+
+    # Устанавливаем классификацию
+    if 0 <= point_class < 256:
+        new_points[cf] = point_class
+    else:
+        new_points[cf] = good_pairs[cf][:, None].repeat(len(frac_values), axis=0).flatten()
+
     log.debug("Генерация новых точек: конец")
 
-    if new_points:
+    if new_points.size > 0:
         result = np.concatenate([points_group, np.array(new_points, dtype=points_group.dtype)])
     else:
         result = points_group
