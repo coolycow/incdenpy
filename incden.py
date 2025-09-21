@@ -34,7 +34,6 @@ def parse_args(defaults):
     parser.add_argument('--no_test_mode', action='store_false', dest='test_mode')
     parser.add_argument('--input_folder', type=str, default=defaults.get('input_folder'))
     parser.add_argument('--output_folder', type=str, default=defaults.get('output_folder'))
-    parser.add_argument('--save_format', type=str, choices=['', 'las10', 'las11', 'las12', 'las13', 'las14'], default=defaults.get('save_format'))
     parser.add_argument('--final_sort', action='store_true', default=defaults.get('final_sort'))
     parser.add_argument('--no_final_sort', action='store_false', dest='final_sort')
     return vars(parser.parse_args())
