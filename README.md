@@ -46,3 +46,8 @@ python incden.py
 ```commandline
 python incden.py --config my_config.yaml --max_distance 2.1 --ignore_classes 2 5 8 --max_workers=8 --workers --no_test_mode --final_sort
 ```
+
+Если нужно обработать только выбранные файлы:
+```commandline
+python incden.py --files i:\prj\UTM42_WGS84_0008.las i:\prj\UTM42_WGS84_0009.las i:\prj\UTM42_WGS84_0010.las
+```
