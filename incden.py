@@ -34,6 +34,7 @@ def parse_args(defaults):
     parser.add_argument('--no_test_mode', action='store_false', dest='test_mode')
     parser.add_argument('--input_folder', type=str, default=defaults.get('input_folder'))
     parser.add_argument('--output_folder', type=str, default=defaults.get('output_folder'))
+    parser.add_argument('--files', type=str, nargs='*', default=defaults.get('files'))
     parser.add_argument('--final_sort', action='store_true', default=defaults.get('final_sort'))
     parser.add_argument('--no_final_sort', action='store_false', dest='final_sort')
     return vars(parser.parse_args())
@@ -49,12 +50,15 @@ def get_files_from_directory(directory):
 
 # Обработка файлов в директории
 def process_files(process_settings, process_logger, process_log_dir="logs", process_log_filename = None):
-    directory = process_settings['input_folder']
+    if not process_settings['files']:
+        directory = process_settings['input_folder']
 
-    files = get_files_from_directory(directory)
-    if not files:
-        process_logger.warning(f"В директории {directory} файлов не найдено")
-        return
+        files = get_files_from_directory(directory)
+        if not files:
+            process_logger.warning(f"В директории {directory} файлов не найдено")
+            return
+    else:
+        files = set(process_settings['files'])
 
     if not process_settings['workers']:
         process_logger.info(f"Начинается обработка {len(files)} файлов в одном потоке...")
