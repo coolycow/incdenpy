@@ -1,9 +1,10 @@
+import logging
+from logger import setup_logger
 import math
 import multiprocessing
 import numpy as np
 from numba import njit
 from concurrent.futures import ProcessPoolExecutor
-from logger import get_worker_logger, init_worker_logger
 
 # Быстрые alias полей, которые используются в дальнейшей работе
 xf = 'X'
@@ -56,10 +57,10 @@ def process_group(
         quantity,
         point_class,
         ignore_classes,
-        cf,
-        logger
+        cf
 ):
-    log = logger or get_worker_logger()
+    setup_logger()
+    log = logging.getLogger(f"LaserDataLogger.{__name__}")
     log.debug(f"Обработка группы point_source_id={points_group[fl][0]}")
 
     if points_group.size <= 1:
@@ -206,12 +207,12 @@ def increase_density_laspy(
         point_class,
         ignore_classes,
         final_sort,
+        use_multiprocessing=True,
         max_processes=4,
-        test_mode=False,
-        logger=None,
-        process_log_dir="logs",
-        process_log_filename = None
+        test_mode=False
 ):
+    logger = logging.getLogger(f"LaserDataLogger.{__name__}")
+
     # Проверяем, что вход - numpy array
     if not isinstance(points, np.ndarray):
         raise TypeError("points должен быть numpy.ndarray со структурированными типами")
@@ -242,26 +243,26 @@ def increase_density_laspy(
         logger.debug(f"Всего уникальных point_source_id (fl): {len(unique_fl)}")
         groups = [points[points[fl] == val] for val in unique_fl]
 
-    results = []
-    max_workers = max(1, min(max_processes, multiprocessing.cpu_count()))
+    if use_multiprocessing:
+        max_workers = max(1, min(max_processes, multiprocessing.cpu_count()))
+    else:
+        max_workers = 1
+
     logger.debug(f"Максимальное количество процессов: {max_workers}")
 
+    results = []
+
     if max_workers == 1:
-        # Последовательная обработка без multiprocessing
         for group in groups:
             processed = process_group(group, scale, max_distance, max_angle, angle_distance,
-                                    time_diff, quantity, point_class, ignore_classes, cf, logger)
+                                    time_diff, quantity, point_class, ignore_classes, cf)
             results.append(processed)
     else:
-        # Параллельная обработка через ProcessPoolExecutor
-        with ProcessPoolExecutor(max_workers=max_workers,
-                                 initializer=init_worker_logger,
-                                 initargs=(process_log_dir, process_log_filename)
-                                 ) as executor:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = []
             for group in groups:
                 futures.append(executor.submit(process_group, group, scale, max_distance, max_angle, angle_distance,
-                                               time_diff, quantity, point_class, ignore_classes, cf, logger))
+                                               time_diff, quantity, point_class, ignore_classes, cf))
             for future in futures:
                 results.append(future.result())
 

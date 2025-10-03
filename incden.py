@@ -1,15 +1,16 @@
+import logging
 import multiprocessing
 import os
+import threading
 import traceback
 
 import laspy
 import yaml
 import argparse
 from laspy import LaspyException, PackedPointRecord
-from logger import setup_logger, log_config, get_worker_logger, init_worker_logger
+from logger import setup_logger, log_config
 from terrascan import increase_density_laspy
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 # Загрузка конфигурации
 def load_config(path):
@@ -20,9 +21,12 @@ def load_config(path):
 def parse_args(defaults):
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default="config.yaml")
+    parser.add_argument('--max_threads', type=int, default=defaults.get('max_threads'))
     parser.add_argument('--max_workers', type=int, default=defaults.get('max_workers'))
-    parser.add_argument('--workers', action='store_true', default=defaults.get('workers'))
-    parser.add_argument('--no_with_workers', action='store_false', dest='workers')
+    parser.add_argument('--multithreading', action='store_true', default=defaults.get('multithreading'))
+    parser.add_argument('--multiprocessing', action='store_true', default=defaults.get('multiprocessing'))
+    parser.add_argument('--no_multithreading', action='store_false', dest='multithreading')
+    parser.add_argument('--no_multiprocessing', action='store_false', dest='multiprocessing')
     parser.add_argument('--max_distance', type=float, default=defaults.get('max_distance'))
     parser.add_argument('--max_angle', type=float, default=defaults.get('max_angle'))
     parser.add_argument('--angle_distance', type=float, default=defaults.get('angle_distance'))
@@ -49,66 +53,66 @@ def get_files_from_directory(directory):
     return files
 
 # Обработка файлов в директории
-def process_files(process_settings, process_logger, process_log_dir="logs", process_log_filename = None):
+def process_files(process_settings):
+    thread_logger = logging.getLogger(f"LaserDataLogger.{__name__}")
+
     if not process_settings['files']:
         directory = process_settings['input_folder']
 
         files = get_files_from_directory(directory)
         if not files:
-            process_logger.warning(f"В директории {directory} файлов не найдено")
+            thread_logger.warning(f"В директории {directory} файлов не найдено")
             return
     else:
         files = set(process_settings['files'])
 
-    if not process_settings['workers']:
-        process_logger.info(f"Начинается обработка {len(files)} файлов в одном потоке...")
+    if not process_settings['multithreading']:
+        thread_logger.info(f"Начинается обработка {len(files)} файлов в одном потоке...")
         for filepath in files:
-            process_file(filepath, process_settings, process_logger)
+            process_file(filepath, process_settings)
     else:
-        max_workers = max(1, min(process_settings['max_workers'], multiprocessing.cpu_count()))
-        process_logger.info(f"Начинается обработка {len(files)} файлов с использованием {max_workers} потоков...")
+        max_threads = max(1, min(process_settings['max_threads'], multiprocessing.cpu_count()))
+        thread_logger.info(f"Начинается обработка {len(files)} файлов с использованием {max_threads} потоков...")
 
-        with ProcessPoolExecutor(max_workers=max_workers,
-                                 initializer=init_worker_logger,
-                                 initargs=(process_log_dir, process_log_filename)) as executor:
+        with ThreadPoolExecutor(max_workers=max_threads) as thread_executor:
             futures = {
-                executor.submit(process_file, filepath, process_settings, process_logger, process_log_dir, process_log_filename):
+                thread_executor.submit(process_file, filepath, process_settings):
                     filepath for filepath in files
             }
 
-            for future in as_completed(futures):
+            for future in futures:
                 filepath = futures[future]
                 try:
                     future.result()
                 except Exception as e:
-                    process_logger.error(f"Ошибка при обработке файла {filepath}: {e}")
+                    thread_logger.error(f"Ошибка при обработке файла {filepath}: {e}")
 
 # Обработка конкретного файла
-def process_file(filepath, process_file_settings, process_file_logger, process_log_dir="logs", process_log_filename = None):
-    log = process_file_logger or get_worker_logger()
+def process_file(filepath, process_file_settings):
+    file_logger = logging.getLogger(f"LaserDataLogger.{__name__}")
 
-    if log is None:
+    if file_logger is None:
         raise RuntimeError("Logger не инициализирован")
 
     if not os.path.exists(filepath):
-        log.warning(f"Файл {filepath} не найден\n")
+        file_logger.warning(f"Файл {filepath} не найден\n")
         return
 
-    log.info(f"Начинается обработка файла: {filepath}")
+    file_logger.info(f"Начинается обработка файла: {filepath} (Поток: {threading.current_thread().name})")
 
     try:
         with laspy.open(filepath) as input_las:
             # Выводим информацию о файле (формат точек, масштаб и смещение)
             header = input_las.header
-            log.info(f"Format: {header.point_format}; Count: {header.point_count}; VLRs: {len(header.vlrs)}")
-            log.info(f"Scale (units) X, Y, Z: {header.scale}")
-            log.info(f"Offset X, Y, Z: {header.offset}")
+            file_logger.debug(f"Format: {header.point_format}; Count: {header.point_count}; VLRs: {len(header.vlrs)}")
+            file_logger.debug(f"Scale (units) X, Y, Z: {header.scale}")
+            file_logger.debug(f"Offset X, Y, Z: {header.offset}")
 
             # Выводим все имена измерений
             if process_file_settings['test_mode']:
-                log.debug("Point format dimension names:")
+                file_logger.debug("Point format dimension names:")
                 for dim in header.point_format.dimension_names:
-                    log.debug(dim)
+                    file_logger.debug(dim)
 
             las = input_las.read()
 
@@ -117,7 +121,7 @@ def process_file(filepath, process_file_settings, process_file_logger, process_l
             try:
                 _ = las.gps_time
             except AttributeError:
-                log.warning("В файле отсутствуют временные метки (gps_time). Уплотнение точек пропущено.")
+                file_logger.warning("В файле отсутствуют временные метки (gps_time). Уплотнение точек пропущено.")
 
                 # Формируем имя для сохранения
                 filename = os.path.basename(filepath)
@@ -128,15 +132,15 @@ def process_file(filepath, process_file_settings, process_file_logger, process_l
                 with open(output_path, "wb") as output_file:
                     las.write(output_file)
 
-                log.info(f"Исходный файл сохранён без изменений: {output_path}\n")
+                file_logger.info(f"Исходный файл сохранён без изменений: {output_path}\n")
                 return
 
             # Организуем данные в наш упрощенный класс Point3d для совместимости с increase_density
             points = las.points.array
 
             # Выводим первую точку для проверки координат
-            log.info(f"First point raw X, Y, Z: {points[0]['X']}, {points[0]['Y']}, {points[0]['Z']}")
-            log.info(f"First point scaled X, Y, Z: {las.x[0]}, {las.y[0]}, {las.z[0]}")
+            file_logger.debug(f"First point raw X, Y, Z: {points[0]['X']}, {points[0]['Y']}, {points[0]['Z']}")
+            file_logger.debug(f"First point scaled X, Y, Z: {las.x[0]}, {las.y[0]}, {las.z[0]}")
 
             # Вызываем функцию на увеличение плотности точек с параметрами из process_file_settings
             new_points = increase_density_laspy(
@@ -150,19 +154,17 @@ def process_file(filepath, process_file_settings, process_file_logger, process_l
                 point_class = process_file_settings['point_class'],
                 ignore_classes = process_file_settings['ignore_classes'],
                 final_sort = process_file_settings['final_sort'],
+                use_multiprocessing = process_file_settings['multiprocessing'],
                 max_processes = process_file_settings['max_workers'],
-                test_mode = process_file_settings['test_mode'],
-                logger=log,
-                process_log_dir=process_log_dir,
-                process_log_filename=process_log_filename
+                test_mode = process_file_settings['test_mode']
             )
 
             if len(new_points) == len(points):
-                log.info("Новых точек не добавлено, исходные данные остаются без изменений.")
+                file_logger.info("Новых точек не добавлено, исходные данные остаются без изменений.")
             else:
                 las.points = PackedPointRecord(new_points, header.point_format)
                 las.header.point_count = len(new_points)
-                log.info(f"Добавлено дополнительных точек: {len(new_points) - len(points)}")
+                file_logger.info(f"Добавлено дополнительных точек: {len(new_points) - len(points)}")
 
             # Формируем имя для сохранения
             filename = os.path.basename(filepath)
@@ -175,13 +177,13 @@ def process_file(filepath, process_file_settings, process_file_logger, process_l
             with open(output_path, "wb") as output_file:
                 las.write(output_file)
     except LaspyException as e:
-        log.error(f"Ошибка чтения LAS/LAZ файла {filepath}: {e}. Файл пропущен\n")
+        file_logger.error(f"Ошибка чтения LAS/LAZ файла {filepath}: {e}. Файл пропущен\n")
         return
     except Exception as e:
-        log.error(f"Неизвестная ошибка при обработке файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")
+        file_logger.error(f"Неизвестная ошибка при обработке файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")
         return
 
-    log.info(f"Завершена обработка файла: {filepath}\n")
+    file_logger.info(f"Завершена обработка файла: {filepath}\n")
 
 # Основная функция
 if __name__ == "__main__":
@@ -194,10 +196,10 @@ if __name__ == "__main__":
     settings = parse_args(config)
 
     # Настраиваем логирование
-    log_dir = "logs"
-    log_filename = datetime.now().strftime("run_%Y%m%d_%H%M%S.log")
-    logger, log_file = setup_logger(log_dir, log_filename)
-    log_config(logger, settings)
+    main_logger, log_path = setup_logger()
+    main_logger.info("Main logger initialized")
+
+    log_config(settings)
 
     # Запускаем обработку файлов
-    process_files(settings, logger, log_dir, log_filename)
+    process_files(settings)
