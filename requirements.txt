@@ -2,3 +2,4 @@ PyYAML>=6.0
 laspy>=2.6.1
 numpy
 numba
+tqdm

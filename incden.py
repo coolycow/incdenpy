@@ -3,7 +3,7 @@ import multiprocessing
 import os
 import threading
 import traceback
-
+from tqdm import tqdm
 import laspy
 import yaml
 import argparse
@@ -68,8 +68,13 @@ def process_files(process_settings):
 
     if not process_settings['multithreading']:
         thread_logger.info(f"Начинается обработка {len(files)} файлов в одном потоке...")
-        for filepath in files:
-            process_file(filepath, process_settings)
+
+        if process_settings['test_mode'] and thread_logger:
+            for filepath in files:
+                process_file(filepath, process_settings)
+        else:
+            for filepath in tqdm(files, desc="Обработка файлов", unit="файл"):
+                process_file(filepath, process_settings)
     else:
         max_threads = max(1, min(process_settings['max_threads'], multiprocessing.cpu_count()))
         thread_logger.info(f"Начинается обработка {len(files)} файлов с использованием {max_threads} потоков...")
@@ -80,12 +85,24 @@ def process_files(process_settings):
                     filepath for filepath in files
             }
 
-            for future in futures:
-                filepath = futures[future]
-                try:
-                    future.result()
-                except Exception as e:
-                    thread_logger.error(f"Ошибка при обработке файла {filepath}: {e}")
+            # Используем tqdm только если test_mode=False
+            if process_settings['test_mode'] and thread_logger:
+                for future in futures:
+                    filepath = futures[future]
+                    try:
+                        future.result()
+                    except Exception as e:
+                        thread_logger.error(f"Ошибка при обработке файла {filepath}: {e}")
+            else:
+                with tqdm(total=len(futures), desc="Обработка файлов", unit="файл") as pbar:
+                    for future in futures:
+                        filepath = futures[future]
+                        try:
+                            future.result()
+                            pbar.update(1)
+                        except Exception as e:
+                            thread_logger.error(f"Ошибка при обработке файла {filepath}: {e}")
+                            pbar.update(1)
 
 # Обработка конкретного файла
 def process_file(filepath, process_file_settings):
@@ -98,22 +115,26 @@ def process_file(filepath, process_file_settings):
         file_logger.warning(f"Файл {filepath} не найден\n")
         return
 
-    file_logger.info(f"Начинается обработка файла: {filepath} (Поток: {threading.current_thread().name})")
+    if process_file_settings['test_mode'] and file_logger:
+        file_logger.info(f"Начинается обработка файла: {filepath} (Поток: {threading.current_thread().name})")
 
     try:
         with laspy.open(filepath) as input_las:
-            # Выводим информацию о файле (формат точек, масштаб и смещение)
             header = input_las.header
-            file_logger.debug(f"Format: {header.point_format}; Count: {header.point_count}; VLRs: {len(header.vlrs)}")
-            file_logger.debug(f"Scale (units) X, Y, Z: {header.scale}")
-            file_logger.debug(f"Offset X, Y, Z: {header.offset}")
+
+            # Выводим информацию о файле (формат точек, масштаб и смещение)
+            if process_file_settings['test_mode'] and file_logger:
+                file_logger.debug(f"Format: {header.point_format}; Count: {header.point_count}; VLRs: {len(header.vlrs)}")
+                file_logger.debug(f"Scale (units) X, Y, Z: {header.scale}")
+                file_logger.debug(f"Offset X, Y, Z: {header.offset}")
 
             # Выводим все имена измерений
-            if process_file_settings['test_mode']:
+            if process_file_settings['test_mode'] and file_logger:
                 file_logger.debug("Point format dimension names:")
                 for dim in header.point_format.dimension_names:
                     file_logger.debug(dim)
 
+            # Читаем все точки из файла
             las = input_las.read()
 
             # Время может отсутствовать, учесть
@@ -139,8 +160,9 @@ def process_file(filepath, process_file_settings):
             points = las.points.array
 
             # Выводим первую точку для проверки координат
-            file_logger.debug(f"First point raw X, Y, Z: {points[0]['X']}, {points[0]['Y']}, {points[0]['Z']}")
-            file_logger.debug(f"First point scaled X, Y, Z: {las.x[0]}, {las.y[0]}, {las.z[0]}")
+            if process_file_settings['test_mode'] and file_logger:
+                file_logger.debug(f"First point raw X, Y, Z: {points[0]['X']}, {points[0]['Y']}, {points[0]['Z']}")
+                file_logger.debug(f"First point scaled X, Y, Z: {las.x[0]}, {las.y[0]}, {las.z[0]}")
 
             # Вызываем функцию на увеличение плотности точек с параметрами из process_file_settings
             new_points = increase_density_laspy(
@@ -159,12 +181,15 @@ def process_file(filepath, process_file_settings):
                 test_mode = process_file_settings['test_mode']
             )
 
+            # Проверяем, что действительно были добавлены новые точки
             if len(new_points) == len(points):
-                file_logger.info("Новых точек не добавлено, исходные данные остаются без изменений.")
+                if process_file_settings['test_mode'] and file_logger:
+                    file_logger.info("Новых точек не добавлено, исходные данные остаются без изменений.")
             else:
                 las.points = PackedPointRecord(new_points, header.point_format)
                 las.header.point_count = len(new_points)
-                file_logger.info(f"Добавлено дополнительных точек: {len(new_points) - len(points)}")
+                if process_file_settings['test_mode'] and file_logger:
+                    file_logger.info(f"Добавлено дополнительных точек: {len(new_points) - len(points)}")
 
             # Формируем имя для сохранения
             filename = os.path.basename(filepath)
@@ -183,7 +208,8 @@ def process_file(filepath, process_file_settings):
         file_logger.error(f"Неизвестная ошибка при обработке файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")
         return
 
-    file_logger.info(f"Завершена обработка файла: {filepath}\n")
+    if process_file_settings['test_mode'] and file_logger:
+        file_logger.info(f"Завершена обработка файла: {filepath}\n")
 
 # Основная функция
 if __name__ == "__main__":
