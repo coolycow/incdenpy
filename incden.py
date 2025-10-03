@@ -222,8 +222,7 @@ if __name__ == "__main__":
     settings = parse_args(config)
 
     # Настраиваем логирование
-    main_logger, log_path = setup_logger()
-    main_logger.info("Main logger initialized")
+    main_logger = setup_logger()
 
     log_config(settings)
 
