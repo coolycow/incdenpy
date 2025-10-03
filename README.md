@@ -74,3 +74,15 @@ python incden.py --config my_config.yaml --max_distance 2.1 --ignore_classes 2 5
 ```commandline
 python incden.py --files i:\prj\UTM42_WGS84_0008.las i:\prj\UTM42_WGS84_0009.las i:\prj\UTM42_WGS84_0010.las
 ```
+# IncDen ASCII
+```text
+  ####    ##   ##    ####   #####    #######  ##   ##
+   ##     ###  ##   ##  ##   ## ##    ##   #  ###  ##
+   ##     #### ##  ##        ##  ##   ## #    #### ##
+   ##     ## ####  ##        ##  ##   ####    ## ####
+   ##     ##  ###  ##        ##  ##   ## #    ##  ###
+   ##     ##   ##   ##  ##   ## ##    ##   #  ##   ##
+  ####    ##   ##    ####   #####    #######  ##   ##
+        Welcome to LAS & LIDAR Processing Tool
+        Increasing point cloud density with love 💙
+```
