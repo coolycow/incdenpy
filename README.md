@@ -61,16 +61,16 @@ pip install -r requirements.txt
 
 # Пример запуска
 Если используются ТОЛЬКО настройки из `config.yaml`:
-```commandline
+```shell
 python incden.py
 ```
 
 Если используются настройки из `my_config.yam` и дополнительно указываются параметры запуска:
-```commandline
-python incden.py --config my_config.yaml --max_distance 2.1 --ignore_classes 2 5 8 --max_processes=8 --multiprocessing --no_test_mode --final_sort
+```shell
+python incden.py --config my_config.yaml --max_distance 2.1 --ignore_classes 2 5 8 --max_processes 8 --multiprocessing --no_test_mode --final_sort
 ```
 
 Если нужно обработать только выбранные файлы:
-```commandline
+```shell
 python incden.py --files i:\prj\UTM42_WGS84_0008.las i:\prj\UTM42_WGS84_0009.las i:\prj\UTM42_WGS84_0010.las
 ```
