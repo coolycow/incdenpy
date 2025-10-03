@@ -224,7 +224,21 @@ if __name__ == "__main__":
     # Настраиваем логирование
     main_logger = setup_logger()
 
+    ascii_art_inc_den = r"""
+  ####    ##   ##    ####   #####    #######  ##   ##
+   ##     ###  ##   ##  ##   ## ##    ##   #  ###  ##
+   ##     #### ##  ##        ##  ##   ## #    #### ##
+   ##     ## ####  ##        ##  ##   ####    ## ####
+   ##     ##  ###  ##        ##  ##   ## #    ##  ###
+   ##     ##   ##   ##  ##   ## ##    ##   #  ##   ##
+  ####    ##   ##    ####   #####    #######  ##   ##
+        Welcome to LAS & LIDAR Processing Tool
+        Increasing point cloud density with love 💙
+"""
+
+    print(ascii_art_inc_den)
+
     log_config(settings)
 
     # Запускаем обработку файлов
-    process_files(settings)
+    # process_files(settings)
