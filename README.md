@@ -67,7 +67,7 @@ python incden.py
 
 Если используются настройки из `my_config.yam` и дополнительно указываются параметры запуска:
 ```commandline
-python incden.py --config my_config.yaml --max_distance 2.1 --ignore_classes 2 5 8 --max_workers=8 --workers --no_test_mode --final_sort
+python incden.py --config my_config.yaml --max_distance 2.1 --ignore_classes 2 5 8 --max_processes=8 --multiprocessing --no_test_mode --final_sort
 ```
 
 Если нужно обработать только выбранные файлы:
