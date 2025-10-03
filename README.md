@@ -84,5 +84,6 @@ python incden.py --files i:\prj\UTM42_WGS84_0008.las i:\prj\UTM42_WGS84_0009.las
    ##     ##   ##   ##  ##   ## ##    ##   #  ##   ##
   ####    ##   ##    ####   #####    #######  ##   ##
         Welcome to LAS & LIDAR Processing Tool
-        Increasing point cloud density with love 💙
+       Increasing point cloud density with love
+                         💙
 ```

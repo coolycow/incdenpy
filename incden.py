@@ -233,7 +233,8 @@ if __name__ == "__main__":
    ##     ##   ##   ##  ##   ## ##    ##   #  ##   ##
   ####    ##   ##    ####   #####    #######  ##   ##
         Welcome to LAS & LIDAR Processing Tool
-        Increasing point cloud density with love 💙
+       Increasing point cloud density with love
+                         💙
 """
 
     print(ascii_art_inc_den)
@@ -241,4 +242,4 @@ if __name__ == "__main__":
     log_config(settings)
 
     # Запускаем обработку файлов
-    # process_files(settings)
+    process_files(settings)
