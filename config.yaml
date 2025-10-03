@@ -11,5 +11,5 @@ output_folder: "./02_output" # Папка с выходными данными
 multithreading: True # Использовать потоки
 max_threads: 2 # Максимальное количество потоков
 multiprocessing: True # Использовать процессы
-max_workers: 4 # Максимальное количество процессов
+max_processes: 4 # Максимальное количество процессов
 final_sort: false # Сортировать финальные точки по времени

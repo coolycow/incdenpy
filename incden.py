@@ -22,7 +22,7 @@ def parse_args(defaults):
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default="config.yaml")
     parser.add_argument('--max_threads', type=int, default=defaults.get('max_threads'))
-    parser.add_argument('--max_workers', type=int, default=defaults.get('max_workers'))
+    parser.add_argument('--max_processes', type=int, default=defaults.get('max_processes'))
     parser.add_argument('--multithreading', action='store_true', default=defaults.get('multithreading'))
     parser.add_argument('--multiprocessing', action='store_true', default=defaults.get('multiprocessing'))
     parser.add_argument('--no_multithreading', action='store_false', dest='multithreading')
@@ -155,7 +155,7 @@ def process_file(filepath, process_file_settings):
                 ignore_classes = process_file_settings['ignore_classes'],
                 final_sort = process_file_settings['final_sort'],
                 use_multiprocessing = process_file_settings['multiprocessing'],
-                max_processes = process_file_settings['max_workers'],
+                max_processes = process_file_settings['max_processes'],
                 test_mode = process_file_settings['test_mode']
             )
 
