@@ -58,15 +58,15 @@ def process_group(
         point_class,
         ignore_classes,
         cf,
-        test_mode=False
+        test=False
 ):
     log = None
 
-    if test_mode:
+    if test:
         setup_logger()
         log = logging.getLogger(f"LaserDataLogger.{__name__}")
 
-    if test_mode and log:
+    if test and log:
         log.debug(f"Обработка группы point_source_id={points_group[fl][0]}")
 
     if points_group.size <= 1:
@@ -95,21 +95,21 @@ def process_group(
     has_fl = (fl in points_group.dtype.names)
 
     # Сортируем имеющиеся точки по увеличению времени
-    if test_mode and log:
+    if test and log:
         log.debug("Сортировка исходных точек по времени: начало")
     points_group.sort(order=tf)
-    if test_mode and log:
+    if test and log:
         log.debug("Сортировка исходных точек по времени: конец")
 
     # Сортируем имеющиеся точки с одинаковым временем по расстоянию от точки с предыдущим временем
-    if test_mode and log:
+    if test and log:
         log.debug("Сортировка исходных точек с одинаковым временем: начало")
     sort_with_same_time(points_group)
-    if test_mode and log:
+    if test and log:
         log.debug("Сортировка исходных точек с одинаковым временем: конец")
 
     # Векторизированная фильтрация пар точек
-    if test_mode and log:
+    if test and log:
         log.debug("Фильтрация исходного массива точек: начало")
     n = len(points_group)
     idx = np.arange(n - 1)
@@ -143,14 +143,14 @@ def process_group(
     final_mask = mask_class & mask_fl & mask_time & mask_dist & mask_angle
 
     good_idx = np.where(final_mask)[0]
-    if test_mode and log:
+    if test and log:
         log.debug("Фильтрация исходного массива точек: конец")
 
     # Предварительное вычисление долей для вставки
     delta_dist_frac = 1 / parts_count
     frac_values = np.arange(1, parts_count) * delta_dist_frac
 
-    if test_mode and log:
+    if test and log:
         log.debug("Генерация новых точек: начало")
 
     # Получаем индексы "хороших" пар
@@ -200,7 +200,7 @@ def process_group(
     else:
         new_points[cf] = good_pairs[cf][:, None].repeat(len(frac_values), axis=0).flatten()
 
-    if test_mode and log:
+    if test and log:
         log.debug("Генерация новых точек: конец")
 
     if new_points.size > 0:
@@ -223,7 +223,7 @@ def increase_density_laspy(
         final_sort,
         use_multiprocessing=True,
         max_processes=4,
-        test_mode=False
+        test=False
 ):
     logger = logging.getLogger(f"LaserDataLogger.{__name__}")
 
@@ -244,18 +244,18 @@ def increase_density_laspy(
     cf = 'classification'
     if not cf in points.dtype.names:
         cf = 'raw_classification'
-        if test_mode and logger:
+        if test and logger:
             logger.debug("Используется raw_classification")
 
     # Разбиение точек по point_source_id
     # Если point_source_id нет, то формируем одну группу с полным массивом точек
     if fl not in points.dtype.names:
-        if test_mode and logger:
+        if test and logger:
             logger.debug("Поля point_source_id нет: формируем одну группу с полным массивом точек")
         groups = [points]
     else:
         unique_fl = np.unique(points[fl])
-        if test_mode and logger:
+        if test and logger:
             logger.debug(f"Всего уникальных point_source_id (fl): {len(unique_fl)}")
         groups = [points[points[fl] == val] for val in unique_fl]
 
@@ -264,7 +264,7 @@ def increase_density_laspy(
     else:
         max_workers = 1
 
-    if test_mode and logger:
+    if test and logger:
         logger.debug(f"Максимальное количество процессов: {max_workers}")
 
     results = []
@@ -272,14 +272,14 @@ def increase_density_laspy(
     if max_workers == 1:
         for group in groups:
             processed = process_group(group, scale, max_distance, max_angle, angle_distance,
-                                    time_diff, quantity, point_class, ignore_classes, cf, test_mode)
+                                    time_diff, quantity, point_class, ignore_classes, cf, test)
             results.append(processed)
     else:
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = []
             for group in groups:
                 futures.append(executor.submit(process_group, group, scale, max_distance, max_angle, angle_distance,
-                                               time_diff, quantity, point_class, ignore_classes, cf, test_mode))
+                                               time_diff, quantity, point_class, ignore_classes, cf, test))
             for future in futures:
                 results.append(future.result())
 
@@ -288,7 +288,7 @@ def increase_density_laspy(
 
     # Сортировка если нужно
     if final_sort:
-        if test_mode and logger:
+        if test and logger:
             logger.debug("Сортировка итогового массива по времени")
         final_points.sort(order=tf)
 

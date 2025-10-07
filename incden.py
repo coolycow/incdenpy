@@ -34,8 +34,8 @@ def parse_args(defaults):
     parser.add_argument('--point_class', type=int, default=defaults.get('point_class'))
     parser.add_argument('--time_diff', type=float, default=defaults.get('time_diff'))
     parser.add_argument('--ignore_classes', type=int, nargs='*', default=defaults.get('ignore_classes'))
-    parser.add_argument('--test_mode', action='store_true', default=defaults.get('test_mode'))
-    parser.add_argument('--no_test_mode', action='store_false', dest='test_mode')
+    parser.add_argument('--test', action='store_true', default=defaults.get('test'))
+    parser.add_argument('--no_test', action='store_false', dest='test')
     parser.add_argument('--input_folder', type=str, default=defaults.get('input_folder'))
     parser.add_argument('--output_folder', type=str, default=defaults.get('output_folder'))
     parser.add_argument('--files', type=str, nargs='*', default=defaults.get('files'))
@@ -69,7 +69,7 @@ def process_files(process_settings):
     if not process_settings['multithreading']:
         thread_logger.info(f"Начинается обработка {len(files)} файлов в одном потоке...")
 
-        if process_settings['test_mode'] and thread_logger:
+        if process_settings['test'] and thread_logger:
             for filepath in files:
                 process_file(filepath, process_settings)
         else:
@@ -85,8 +85,8 @@ def process_files(process_settings):
                     filepath for filepath in files
             }
 
-            # Используем tqdm только если test_mode=False
-            if process_settings['test_mode'] and thread_logger:
+            # Используем tqdm только если test=False
+            if process_settings['test'] and thread_logger:
                 for future in futures:
                     filepath = futures[future]
                     try:
@@ -115,7 +115,7 @@ def process_file(filepath, process_file_settings):
         file_logger.warning(f"Файл {filepath} не найден\n")
         return
 
-    if process_file_settings['test_mode'] and file_logger:
+    if process_file_settings['test'] and file_logger:
         file_logger.info(f"Начинается обработка файла: {filepath} (Поток: {threading.current_thread().name})")
 
     try:
@@ -123,13 +123,13 @@ def process_file(filepath, process_file_settings):
             header = input_las.header
 
             # Выводим информацию о файле (формат точек, масштаб и смещение)
-            if process_file_settings['test_mode'] and file_logger:
+            if process_file_settings['test'] and file_logger:
                 file_logger.debug(f"Format: {header.point_format}; Count: {header.point_count}; VLRs: {len(header.vlrs)}")
                 file_logger.debug(f"Scale (units) X, Y, Z: {header.scale}")
                 file_logger.debug(f"Offset X, Y, Z: {header.offset}")
 
             # Выводим все имена измерений
-            if process_file_settings['test_mode'] and file_logger:
+            if process_file_settings['test'] and file_logger:
                 file_logger.debug("Point format dimension names:")
                 for dim in header.point_format.dimension_names:
                     file_logger.debug(dim)
@@ -160,7 +160,7 @@ def process_file(filepath, process_file_settings):
             points = las.points.array
 
             # Выводим первую точку для проверки координат
-            if process_file_settings['test_mode'] and file_logger:
+            if process_file_settings['test'] and file_logger:
                 file_logger.debug(f"First point raw X, Y, Z: {points[0]['X']}, {points[0]['Y']}, {points[0]['Z']}")
                 file_logger.debug(f"First point scaled X, Y, Z: {las.x[0]}, {las.y[0]}, {las.z[0]}")
 
@@ -178,17 +178,17 @@ def process_file(filepath, process_file_settings):
                 final_sort = process_file_settings['final_sort'],
                 use_multiprocessing = process_file_settings['multiprocessing'],
                 max_processes = process_file_settings['max_processes'],
-                test_mode = process_file_settings['test_mode']
+                test = process_file_settings['test']
             )
 
             # Проверяем, что действительно были добавлены новые точки
             if len(new_points) == len(points):
-                if process_file_settings['test_mode'] and file_logger:
+                if process_file_settings['test'] and file_logger:
                     file_logger.info("Новых точек не добавлено, исходные данные остаются без изменений.")
             else:
                 las.points = PackedPointRecord(new_points, header.point_format)
                 las.header.point_count = len(new_points)
-                if process_file_settings['test_mode'] and file_logger:
+                if process_file_settings['test'] and file_logger:
                     file_logger.info(f"Добавлено дополнительных точек: {len(new_points) - len(points)}")
 
             # Формируем имя для сохранения
@@ -208,7 +208,7 @@ def process_file(filepath, process_file_settings):
         file_logger.error(f"Неизвестная ошибка при обработке файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")
         return
 
-    if process_file_settings['test_mode'] and file_logger:
+    if process_file_settings['test'] and file_logger:
         file_logger.info(f"Завершена обработка файла: {filepath}\n")
 
 # Основная функция
