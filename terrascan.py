@@ -3,7 +3,6 @@ from logger import setup_logger
 import math
 import multiprocessing
 import numpy as np
-from numba import njit
 from concurrent.futures import ProcessPoolExecutor
 
 # Быстрые alias полей, которые используются в дальнейшей работе
@@ -14,7 +13,6 @@ tf = 'gps_time'
 fl = 'point_source_id'
 
 # Функция сортировки точек с одинаковым временем
-@njit
 def sort_with_same_time(points):
     i = 0
     n = len(points)
