@@ -73,7 +73,7 @@ def process_group(
         return points_group
 
     # Делаем оптимизацию входных данных
-    ignore_set = set(ignore_classes)
+    ignore_list = list(ignore_classes)
     max_angle_local = abs(max_angle)
 
     # Возводим в квадрат полученные значения расстояний и переводим в целочисленные значения для ускорения расчетов.
@@ -117,8 +117,8 @@ def process_group(
     mask_class = np.ones(n - 1, dtype=bool)
     if has_cf:
         mask_class = (
-            ~np.isin(points_group[cf][idx], ignore_set) &
-            ~np.isin(points_group[cf][idx + 1], ignore_set)
+            ~np.isin(points_group[cf][idx], ignore_list) &
+            ~np.isin(points_group[cf][idx + 1], ignore_list)
         )
 
     mask_fl = np.ones(n - 1, dtype=bool)
