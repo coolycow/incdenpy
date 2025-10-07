@@ -127,9 +127,9 @@ def process_group(
 
     mask_time = np.abs(points_group[tf][idx] - points_group[tf][idx + 1]) <= time_diff
 
-    dx = points_group[xf][idx + 1] - points_group[xf][idx]
-    dy = points_group[yf][idx + 1] - points_group[yf][idx]
-    dz = points_group[zf][idx + 1] - points_group[zf][idx]
+    dx = points_group[xf][idx + 1].astype(np.float64) - points_group[xf][idx].astype(np.float64)
+    dy = points_group[yf][idx + 1].astype(np.float64) - points_group[yf][idx].astype(np.float64)
+    dz = points_group[zf][idx + 1].astype(np.float64) - points_group[zf][idx].astype(np.float64)
     qd = dx ** 2 + dy ** 2 + dz ** 2
     mask_dist = qd <= q_max_distance
 
