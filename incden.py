@@ -184,7 +184,7 @@ def process_file(filepath, process_file_settings):
             # Проверяем, что действительно были добавлены новые точки
             if len(new_points) == len(points):
                 if process_file_settings['test'] and file_logger:
-                    file_logger.info("Новых точек не добавлено, исходные данные остаются без изменений.")
+                    file_logger.warning("Новых точек не добавлено, исходные данные остаются без изменений.")
             else:
                 las.points = PackedPointRecord(new_points, header.point_format)
                 las.header.point_count = len(new_points)
@@ -202,7 +202,7 @@ def process_file(filepath, process_file_settings):
             with open(output_path, "wb") as output_file:
                 las.write(output_file)
     except LaspyException as e:
-        file_logger.error(f"Ошибка чтения LAS/LAZ файла {filepath}: {e}. Файл пропущен\n")
+        file_logger.error(f"Ошибка чтения LAS/LAZ файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")
         return
     except Exception as e:
         file_logger.error(f"Неизвестная ошибка при обработке файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")

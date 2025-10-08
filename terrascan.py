@@ -64,11 +64,14 @@ def process_group(
         setup_logger()
         log = logging.getLogger(f"LaserDataLogger.{__name__}")
 
-    if test and log:
-        log.debug(f"Обработка группы point_source_id={points_group[fl][0]}")
-
     if points_group.size <= 1:
+        log.warning("В группе меньше двух точек, группа не будет обработана")
         return points_group
+
+    flightline = points_group[fl][0]
+
+    if test and log:
+        log.debug(f"Обработка группы point_source_id={flightline}")
 
     # Делаем оптимизацию входных данных
     ignore_list = list(ignore_classes)
@@ -143,6 +146,10 @@ def process_group(
     good_idx = np.where(final_mask)[0]
     if test and log:
         log.debug("Фильтрация исходного массива точек: конец")
+
+    if len(good_idx) == 0:
+        log.warning(f"В группе point_source_id={flightline} нет точек для генерации новых")
+        return points_group
 
     # Предварительное вычисление долей для вставки
     delta_dist_frac = 1 / parts_count
