@@ -202,10 +202,12 @@ def process_file(filepath, process_file_settings):
             with open(output_path, "wb") as output_file:
                 las.write(output_file)
     except LaspyException as e:
-        file_logger.error(f"Ошибка чтения LAS/LAZ файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")
+        if file_logger:
+            file_logger.error(f"Ошибка чтения LAS/LAZ файла {filepath}: {e}. Файл пропущен\n")
         return
     except Exception as e:
-        file_logger.error(f"Неизвестная ошибка при обработке файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")
+        if file_logger:
+            file_logger.error(f"Неизвестная ошибка при обработке файла {filepath}: {e}. Файл пропущен\n{traceback.format_exc()}")
         return
 
     if process_file_settings['test'] and file_logger:

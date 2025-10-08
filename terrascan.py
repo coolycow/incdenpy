@@ -65,7 +65,8 @@ def process_group(
         log = logging.getLogger(f"LaserDataLogger.{__name__}")
 
     if points_group.size <= 1:
-        log.warning("В группе меньше двух точек, группа не будет обработана")
+        if test:
+            log.warning("В группе меньше двух точек, группа не будет обработана")
         return points_group
 
     flightline = points_group[fl][0]
@@ -148,7 +149,8 @@ def process_group(
         log.debug("Фильтрация исходного массива точек: конец")
 
     if len(good_idx) == 0:
-        log.warning(f"В группе point_source_id={flightline} нет точек для генерации новых")
+        if test and log:
+            log.warning(f"В группе point_source_id={flightline} нет точек для генерации новых")
         return points_group
 
     # Предварительное вычисление долей для вставки
